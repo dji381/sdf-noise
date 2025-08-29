@@ -1,5 +1,6 @@
 import * as THREE from 'three';
-
+import fragmentShader from './shaders/fragment-shader.glsl'
+import vertexShader from './shaders/vertex-shader.glsl'
 
 class ThreeApp {
   threejs_: THREE.WebGLRenderer;
@@ -8,6 +9,9 @@ class ThreeApp {
   previousRAF_: number | null = null;
   material_: THREE.ShaderMaterial | null = null;
   totalTime_: number = 0;
+  trailLength: number;
+  pointerTrail: THREE.Vector2[];
+  pointer: THREE.Vector2;
   constructor() {
     this.threejs_ = new THREE.WebGLRenderer();
     document.body.appendChild(this.threejs_.domElement);
@@ -20,29 +24,30 @@ class ThreeApp {
 
     this.camera_ = new THREE.OrthographicCamera(0, 1, 1, 0, 0.1, 1000);
     this.camera_.position.set(0, 0, 1);
+    this.trailLength = 20;
+    this.pointerTrail = Array.from({ length: this.trailLength }, () => new THREE.Vector2(0, 0));
+    this.pointer = new THREE.Vector2(0,0);
   }
 
-  async initialize() {
+   initialize() {
    
 
-    await this.setupProject_();
+    this.setupProject_();
     this.previousRAF_ = null;
     this.onWindowResize_();
     this.raf_();
   }
 
-  async setupProject_() {
-    const vsh = await fetch('/src/shaders/vertex-shader.glsl');
-    const fsh = await fetch('/src/shaders/fragment-shader.glsl');
-
+   setupProject_() {
     const material = new THREE.ShaderMaterial({
       uniforms: {
         resolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
         time: { value: 0.0 },
-        uMousePos: {value: new THREE.Vector2(0,0)}
+        uMousePos: {value: new THREE.Vector2(0,0)},
+        uPointerTrail: { value: this.pointerTrail },
       },
-      vertexShader: await vsh.text(),
-      fragmentShader: await fsh.text()
+      vertexShader: vertexShader,
+      fragmentShader: fragmentShader
     });
 
     this.material_ = material;
@@ -55,7 +60,12 @@ class ThreeApp {
     this.totalTime_ = 0;
     this.onWindowResize_();
   }
-
+  updatePointerTrail() {
+    for (let i = this.trailLength - 1; i > 0; i--) {
+       this.pointerTrail[i].copy(this.pointerTrail[i - 1]);
+    }
+    this.pointerTrail[0].copy(this.pointer);
+  }
   onWindowResize_() {
     const dpr = window.devicePixelRatio;
     const canvas = this.threejs_.domElement;
@@ -71,10 +81,10 @@ class ThreeApp {
     }
   }
   onMouseMove_(e: MouseEvent){
-    const x = e.x - (window.innerWidth / 2);
-    const y = e.y - (window.innerHeight / 2)
+    this.pointer.x = e.x - (window.innerWidth / 2);
+    this.pointer.y = e.y - (window.innerHeight / 2);
     if (this.material_) {
-      this.material_.uniforms.uMousePos.value = new THREE.Vector2(x, - y)
+      this.material_.uniforms.uMousePos.value = new THREE.Vector2(this.pointer.x, - this.pointer.y)
   }
   }
   raf_() {
@@ -88,6 +98,7 @@ class ThreeApp {
       this.raf_();
       this.previousRAF_ = t;
     });
+    this.updatePointerTrail();
   }
 
   step_(timeElapsed: number) {
@@ -105,5 +116,5 @@ let APP_ = null;
 
 window.addEventListener('DOMContentLoaded', async () => {
   APP_ = new ThreeApp();
-  await APP_.initialize();
+  APP_.initialize();
 });

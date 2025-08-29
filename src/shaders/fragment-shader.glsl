@@ -1,8 +1,8 @@
 varying vec2 vUvs;
-varying vec3 vNormal;
 uniform vec2 resolution;
 uniform float time;
-uniform vec2 uMousePos;
+const int TRAIL_LENGTH = 20;
+uniform vec2 uPointerTrail[TRAIL_LENGTH];
 
 float inverseLerp(float v, float minValue, float maxValue) {
   return (v - minValue) / (maxValue - minValue);
@@ -15,6 +15,45 @@ float remap(float v, float inMin, float inMax, float outMin, float outMax) {
 float sdfCircle(vec2 p, float r) {
   return length(p) - r;
 }
+float sdBox( in vec2 p, in vec2 b )
+{
+    vec2 d = abs(p)-b;
+    return length(max(d,0.0)) + min(max(d.x,d.y),0.0);
+}
+
+float sdEllipse( in vec2 p, in vec2 ab )
+{
+    p = abs(p); if( p.x > p.y ) {p=p.yx;ab=ab.yx;}
+    float l = ab.y*ab.y - ab.x*ab.x;
+    float m = ab.x*p.x/l;      float m2 = m*m; 
+    float n = ab.y*p.y/l;      float n2 = n*n; 
+    float c = (m2+n2-1.0)/3.0; float c3 = c*c*c;
+    float q = c3 + m2*n2*2.0;
+    float d = c3 + m2*n2;
+    float g = m + m*n2;
+    float co;
+    if( d<0.0 )
+    {
+        float h = acos(q/c3)/3.0;
+        float s = cos(h);
+        float t = sin(h)*sqrt(3.0);
+        float rx = sqrt( -c*(s + t + 2.0) + m2 );
+        float ry = sqrt( -c*(s - t + 2.0) + m2 );
+        co = (ry+sign(l)*rx+abs(g)/(rx*ry)- m)/2.0;
+    }
+    else
+    {
+        float h = 2.0*m*n*sqrt( d );
+        float s = sign(q+h)*pow(abs(q+h), 1.0/3.0);
+        float u = sign(q-h)*pow(abs(q-h), 1.0/3.0);
+        float rx = -s - u - c*4.0 + 2.0*m2;
+        float ry = (s - u)*sqrt(3.0);
+        float rm = sqrt( rx*rx + ry*ry );
+        co = (ry/sqrt(rm-rx)+2.0*g/rm-m)/2.0;
+    }
+    vec2 r = ab * vec2(co, sqrt(1.0-co*co));
+    return length(r-p) * sign(p.y-r.y);
+}
 float softMax(float a, float b, float k) {
   return log(exp(k * a) + exp(k * b)) / k;
 }
@@ -22,14 +61,7 @@ float softMax(float a, float b, float k) {
 float softMin(float a, float b, float k) {
   return -softMax(-a, -b, k);
 }
-// The MIT License
-// Copyright © 2013 Inigo Quilez
-// Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions: The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-// https://www.youtube.com/c/InigoQuilez
-// https://iquilezles.org/
-//
-// https://www.shadertoy.com/view/Xsl3Dl
-vec3 hash(vec3 p) // replace this by something better
+vec3 hash(vec3 p)
 {
   p = vec3(dot(p, vec3(127.1, 311.7, 74.7)), dot(p, vec3(269.5, 183.3, 246.1)), dot(p, vec3(113.5, 271.9, 124.6)));
 
@@ -101,11 +133,22 @@ float turbulenceFBM(vec3 p, int octaves, float persistence, float lacunarity) {
 
   return total;
 }
+vec2 translate(vec2 p, vec2 t) {
+    return p - t;
+}
+vec3 linearTosRGB(vec3 value ) {
+  vec3 lt = vec3(lessThanEqual(value.rgb, vec3(0.0031308)));
+  
+  vec3 v1 = value * 12.92;
+  vec3 v2 = pow(value.xyz, vec3(0.41666)) * 1.055 - vec3(0.055);
+
+	return mix(v2, v1, lt);
+}
 void main() {
   float persistance = 15.0;
   float lacunarity = 2.0;
   int octaves = 2;
-  float noiseMultiply = 170.0;
+  float noiseFactor = 170.0;
   vec2 offsetUvs = (vUvs - 0.5);
   vec2 pixelCoords = offsetUvs * resolution;
   // noise
@@ -122,13 +165,21 @@ void main() {
   vec3 normal = normalize(vec3(s1 - s2, s3 - s4, 0.005));
   //SDF circles
 
-  vec2 pos = pixelCoords;
-  pos -= uMousePos;
-  float d1 = sdfCircle(pos, 150.0 + noiseSample * noiseMultiply);
-  float d2 = sdfCircle(pixelCoords, 150.0 + noiseSample * noiseMultiply);
-
+  float d1 = 1e5;
+  float baseRadius = 8e-3;
+  float radius = baseRadius * float(TRAIL_LENGTH);
+  float mask = 220.;
+  for (int i = 0; i < TRAIL_LENGTH; i++){
+    float fi = float(i);
+    vec2 pointerTrail = vec2(uPointerTrail[i].x, -uPointerTrail[i].y);
+    pointerTrail = translate(pixelCoords,pointerTrail);
+    float sphere = sdfCircle(pointerTrail, radius - baseRadius * fi + noiseSample * noiseFactor) + mask; 
+    d1 = softMin(d1,sphere,0.01);
+  }
+  float d2 = sdEllipse(translate(pixelCoords, vec2(250.0,0.0)),vec2(70.1,40. )+ noiseSample * noiseFactor);
+  float d3 = sdEllipse(translate(pixelCoords, vec2(-450.0,-150.0)),vec2(110.1,50. )+ noiseSample * noiseFactor);
   //union
-  float d = softMin(d1, d2, 0.01);
+  float d = softMin(softMin(d1, d2, 0.02),d3,0.02);
 
     // Hemi
   vec3 skyColour = vec3(0.0, 0.3, 0.6);
@@ -152,13 +203,16 @@ void main() {
   specular += phongValue *0.5;
 
   //color
-  vec3 colour = mix(vec3(1.0, 0.25, 0.25), vec3(0.0, 0.0, 0.0), noiseSample);
+  vec3 blue = linearTosRGB(vec3(0.192,0.298,0.635));
+  vec3 white = linearTosRGB(vec3(0.976,0.957,0.91));
+  vec3 colour = mix(white, blue, noiseSample);
   colour = pow(colour, vec3(2.));
-  vec3 lighting = hemi * 0.125 + diffuse * 0.5;
+  vec3 lighting = hemi * 1.5 + diffuse * 1.5;
 
   colour = colour * lighting + specular;
   colour = pow(colour, vec3(1.0 / 2.2));
-  colour = mix(colour, vec3(0.0), smoothstep(0.0, 1.0, d));
-  colour = pow(colour, vec3( 1.5));
+  vec3 skyColor = mix(linearTosRGB(vec3(0.949,0.737,0.553)),linearTosRGB(vec3(0.247,0.514,0.749)), smoothstep(0.0,0.35,vUvs.y));
+  colour = mix(colour, skyColor, smoothstep(0.0, 1.0, d));
+  //colour = pow(colour, vec3( 1.5));
   gl_FragColor = vec4(colour, 1.0);
 }
