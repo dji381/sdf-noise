@@ -19,7 +19,7 @@ class ThreeApp {
     window.addEventListener('resize', () => {
       this.onWindowResize_();
     }, false);
-    window.addEventListener('mousemove',(e)=>this.onMouseMove_(e))
+    window.addEventListener('pointermove',(e)=>this.onMouseMove_(e))
     this.scene_ = new THREE.Scene();
 
     this.camera_ = new THREE.OrthographicCamera(0, 1, 1, 0, 0.1, 1000);
