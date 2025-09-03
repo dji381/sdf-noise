@@ -12,7 +12,9 @@ class ThreeApp {
   trailLength: number;
   pointerTrail: THREE.Vector2[];
   pointer: THREE.Vector2;
+  dpr_: number;
   constructor() {
+    this.dpr_ = window.devicePixelRatio || 1; 
     this.threejs_ = new THREE.WebGLRenderer();
     document.body.appendChild(this.threejs_.domElement);
 
@@ -74,24 +76,30 @@ class ThreeApp {
     this.pointerTrail[0].copy(this.pointer);
   }
   onWindowResize_() {
-    const dpr = window.devicePixelRatio;
+    this.dpr_ = window.devicePixelRatio;
     const canvas = this.threejs_.domElement;
     canvas.style.width = window.innerWidth + "px";
     canvas.style.height = window.innerHeight + "px";
     const w = canvas.clientWidth;
     const h = canvas.clientHeight;
 
-    this.threejs_.setSize(w * dpr, h * dpr, false);
+    this.threejs_.setSize(w * this.dpr_, h * this.dpr_, false);
     if (this.material_) {
       this.material_.uniforms.resolution.value = new THREE.Vector2(
-        window.innerWidth * dpr,
-        window.innerHeight * dpr
+        window.innerWidth * this.dpr_,
+        window.innerHeight * this.dpr_
       );
     }
   }
   onPointerMove_(e: PointerEvent) {
-    this.pointer.x = e.x - window.innerWidth / 2;
-    this.pointer.y = e.y - window.innerHeight / 2;
+    const x = e.clientX * this.dpr_; 
+    const y = e.clientY * this.dpr_; 
+    
+    const w = window.innerWidth * this.dpr_;
+    const h = window.innerHeight * this.dpr_;
+
+    this.pointer.x = x - w / 2;
+    this.pointer.y = y - h / 2;
   }
   raf_() {
     requestAnimationFrame((t) => {
