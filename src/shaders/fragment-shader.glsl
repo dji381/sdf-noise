@@ -176,32 +176,26 @@ void main() {
   float d = softMin(softMin(d1, d2, 0.02), d3, 0.02);
   d = softMin(d,d4,0.02);
   d = softMin(d,d5,0.02);
-  //right clouds
+  
+  //Borders clouds
   for(float i = 0.0; i< 5.0; i++){
     float r = sin(i * 12.9898 + time * 0.2) * 0.5 + random(vec2(i));
     float cloud = sdCloud(translate(pixelCoords, vec2(resolution.x / 2.0 - 120.0 + r * 100.0, -resolution.y / 2.0 + 270.0 + i * 100.0)),vec2(10.0,5.0), noiseSample, noiseFactor * 0.2);
-    d=softMin(d,cloud,0.02);
-  } 
-  //left clouds
-  for(float i = 0.0; i< 5.0; i++){
-    float r = sin(i * 12.9898 + time * 0.2) * 0.5 + random(vec2(i));
+    
     float size = mix(2.0, 1.0, random(vec2(i, i + 1.0)));
-    float cloud = sdCloud(translate(pixelCoords, vec2(-resolution.x / 2.0 + 120.0 + r * 100.0, -resolution.y / 2.0 + 270.0 + i * 100.0)),vec2(size,5.0), noiseSample, noiseFactor *0.2);
+    float cloud2 = sdCloud(translate(pixelCoords, vec2(-resolution.x / 2.0 + 120.0 + r * 100.0, -resolution.y / 2.0 + 270.0 + i * 100.0)),vec2(size,5.0), noiseSample, noiseFactor *0.2);
     d=softMin(d,cloud,0.02);
+    d=softMin(d,cloud2,0.02);
+
   } 
-  //top clouds
+  //Top and bottom clouds
    for(float i = 0.0; i< 7.0; i++){
     float r = sin(i * 12.9898 + time * 0.2) * 0.5 + random(vec2(i));
     float size = mix(2.0, 1.0, random(vec2(i, i + 1.0)));
     float cloud = sdCloud(translate(pixelCoords, vec2(-resolution.x / 2.0 + i * 400.0 + r * 100.0, resolution.y / 2.0 - 150.0 + r *50.0)),vec2(size,5.0), noiseSample, noiseFactor *0.2);
+    float cloud2 = sdCloud(translate(pixelCoords, vec2(-resolution.x / 2.0 + i * 400.0 - r * 100.0, -resolution.y / 2.0 + 150.0 + r *50.0)),vec2(size,5.0), noiseSample, noiseFactor *0.2);
     d=softMin(d,cloud,0.02);
-  } 
-  //bottom clouds
-   for(float i = 0.0; i< 7.0; i++){
-    float r = sin(i * 12.9898 + time * 0.2) * 0.5 + random(vec2(i));
-    float size = mix(2.0, 1.0, random(vec2(i, i + 1.0)));
-    float cloud = sdCloud(translate(pixelCoords, vec2(-resolution.x / 2.0 + i * 400.0 - r * 100.0, -resolution.y / 2.0 + 150.0 + r *50.0)),vec2(size,5.0), noiseSample, noiseFactor *0.2);
-    d=softMin(d,cloud,0.02);
+    d=softMin(d,cloud2,0.02);
   } 
     // Hemi
   vec3 skyColour = linearTosRGB(PINK);
