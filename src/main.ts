@@ -23,8 +23,8 @@ class ThreeApp {
       },
       false
     );
-    document.addEventListener("pointermove", (e) => this.onMouseMove_(e));
-    document.addEventListener('pointerdown',(e)=>this.onPointerDown_(e))
+    document.body.addEventListener("pointermove", (e) => this.onPointerMove_(e));
+    document.body.addEventListener('pointerdown',(e)=>this.onPointerMove_(e))
     this.scene_ = new THREE.Scene();
 
     this.camera_ = new THREE.OrthographicCamera(0, 1, 1, 0, 0.1, 1000);
@@ -89,16 +89,10 @@ class ThreeApp {
       );
     }
   }
-  onMouseMove_(e: PointerEvent) {
+  onPointerMove_(e: PointerEvent) {
     this.pointer.x = e.x - window.innerWidth / 2;
     this.pointer.y = e.y - window.innerHeight / 2;
   }
-  onPointerDown_(e: PointerEvent) {
-    if (e.pointerType !== 'touch' || !e.isPrimary) return;
-
-    this.pointer.x = e.x - window.innerWidth / 2;
-    this.pointer.y = e.y - window.innerHeight / 2;
-}
   raf_() {
     requestAnimationFrame((t) => {
       if (this.previousRAF_ === null) {
